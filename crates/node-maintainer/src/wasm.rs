@@ -24,6 +24,7 @@ export interface NodeMaintainerOptions {
     concurrency?: number;
     kdlLock?: string;
     npmLock?: string;
+    skipBadPackages?: boolean;
     defaultTag?: string;
 }
 
@@ -73,6 +74,8 @@ pub struct ParsedNodeMaintainerOptions {
     kdlLock: Option<String>,
     #[tsify(optional)]
     npmLock: Option<String>,
+    #[tsify(optional)]
+    skipBadPackages: Option<bool>,
     #[tsify(optional)]
     defaultTag: Option<String>,
 }
@@ -131,6 +134,9 @@ impl NodeMaintainer {
             }
             if let Some(npm_lock) = opts.npmLock {
                 opts_builder = opts_builder.npm_lock(npm_lock)?;
+            }
+            if let Some(skip_bad_packages) = opts.skipBadPackages {
+                opts_builder = opts_builder.skip_bad_packages(skip_bad_packages);
             }
             if let Some(default_tag) = opts.defaultTag {
                 opts_builder = opts_builder.default_tag(default_tag);

@@ -44,6 +44,7 @@ pub(crate) struct Resolver<'a> {
     #[allow(dead_code)]
     pub(crate) root: &'a Path,
     pub(crate) actual_tree: Option<Lockfile>,
+    pub(crate) skip_bad_packages: bool,
     pub(crate) on_resolution_added: Option<ProgressAdded>,
     pub(crate) on_resolve_progress: Option<ProgressHandler>,
 }
@@ -95,9 +96,11 @@ impl<'a> Resolver<'a> {
             })
             .filter_map(|maybe_spec| maybe_spec)
             .map(|spec| {
+                let cloned_spec = spec.clone();
                 self.nassun
                     .resolve_spec(spec.clone())
-                    .map_ok(move |p| (p, spec))
+                    .map_ok(move |p| (p, cloned_spec))
+                    .map_err(move |e| (e, spec))
             })
             .buffer_unordered(self.concurrency)
             .ready_chunks(self.concurrency);
@@ -190,8 +193,24 @@ impl<'a> Resolver<'a> {
             // don't have to worry about races messing with placement.
             if let Some(packages) = package_stream.next().await {
                 for res in packages {
-                    let (package, spec) = res?;
-                    let deps = fetches.lock().await.remove(&spec);
+
+                    if res.is_err() && self.skip_bad_packages {
+                        continue;
+                    }
+                    let (package, deps) = match res {
+                        Err((e, spec)) => {
+                            if self.skip_bad_packages {
+                                // If we're skipping stuff, we still have
+                                fetches.lock().await.remove(&spec);
+                                continue;
+                            } else {
+                                return Err(e.into());
+                            }
+                        }
+                        Ok((package, spec)) => {
+                            (package, fetches.lock().await.remove(&spec))
+                        }
+                    };
 
                     if let Some(deps) = deps {
                         in_flight -= deps.len();

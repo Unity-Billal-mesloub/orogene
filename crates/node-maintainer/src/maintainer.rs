@@ -42,6 +42,7 @@ pub struct NodeMaintainerOptions {
     locked: bool,
     kdl_lock: Option<Lockfile>,
     npm_lock: Option<Lockfile>,
+    skip_bad_packages: bool,
 
     #[allow(dead_code)]
     hoisted: bool,
@@ -124,6 +125,15 @@ impl NodeMaintainerOptions {
         let lock = Lockfile::from_npm(npm_lock)?;
         self.npm_lock = Some(lock);
         Ok(self)
+    }
+
+    /// When doing package resolution, skip any packages that fail to resolve.
+    /// This can be useful for tooling that cares more about functioning at all,
+    /// vs making sure every single package is accurately installed and
+    /// represented.
+    pub fn skip_bad_packages(mut self, skip: bool) -> Self {
+        self.skip_bad_packages = skip;
+        self
     }
 
     /// Registry used for unscoped packages.
@@ -346,6 +356,7 @@ impl NodeMaintainerOptions {
             locked: self.locked,
             root: &proj_root,
             actual_tree: None,
+            skip_bad_packages: self.skip_bad_packages,
             on_resolution_added: self.on_resolution_added,
             on_resolve_progress: self.on_resolve_progress,
         };
@@ -403,6 +414,7 @@ impl NodeMaintainerOptions {
             locked: self.locked,
             root: &proj_root,
             actual_tree: None,
+            skip_bad_packages: self.skip_bad_packages,
             on_resolution_added: self.on_resolution_added,
             on_resolve_progress: self.on_resolve_progress,
         };
@@ -454,6 +466,7 @@ impl Default for NodeMaintainerOptions {
             kdl_lock: None,
             npm_lock: None,
             locked: false,
+            skip_bad_packages: false,
             script_concurrency: DEFAULT_SCRIPT_CONCURRENCY,
             cache: None,
             hoisted: false,
